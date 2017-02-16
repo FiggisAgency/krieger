@@ -28,7 +28,7 @@ type Reader struct {
 	Buf *bufio.Reader
 }
 
-//Line represents a line of dialouge
+//Line represents a line of dialogue
 type Line struct {
 	// The sequence in the scene
 	Seq int64
@@ -40,7 +40,7 @@ type Line struct {
 	ToStr string
 	// The time the line disappears
 	To int64
-	// The actual dialouge
+	// The actual dialogue
 	Text string
 }
 

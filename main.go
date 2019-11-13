@@ -2,33 +2,20 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
-	"log"
-
-	"bytes"
-
-	"github.com/rbrick/krieger/subtitles"
-	"github.com/rbrick/krieger/subtitles/subrip"
+	"github.com/FiggisAgency/krieger/av"
+	"image/png"
+	"os"
 )
 
 func main() {
-	d, err := ioutil.ReadFile("Example.srt")
-	if err != nil {
-		log.Fatal(err)
-	}
-	r := subtitles.NewSubripReader(bytes.NewReader(d))
-	for i := 0; i < 10; i++ {
-		l, err := r.Read()
+	video := av.LoadVideo("test.mp4")
+	defer video.Cleanup()
 
-		if err == subrip.ErrCompleted {
-			break
-		}
+	for i := 0; i < 30; i++ {
+		f, _ := os.Create(fmt.Sprintf("test_%d.png", i))
 
-		fmt.Println(i, ":")
-		fmt.Println("Appear Time:", l.FromStr)
-		fmt.Println("Disappear Time:", l.ToStr)
-		fmt.Println("Text:", l.Text)
-		fmt.Println()
-		fmt.Println()
+		png.Encode(f, video.ReadFrame())
+
+		fmt.Println("test")
 	}
 }

@@ -1,2 +1,7 @@
 *.exe
 *.srt
+*.mp4
+build.sh
+*.png
+.idea/
+lib/

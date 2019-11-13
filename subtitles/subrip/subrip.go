@@ -10,7 +10,7 @@ import (
 
 	"strings"
 
-	"github.com/rbrick/krieger/utils"
+	"github.com/FiggisAgency/krieger/utils"
 )
 
 var (
@@ -58,7 +58,7 @@ func (r *Reader) Read() (line *Line, err error) {
 
 	line = &Line{}
 
-	for s != "" && err == nil {
+	for s != "" {
 		// Assume we are parsing sequence
 		if i, iErr := strconv.Atoi(s); iErr == nil {
 			line.Seq = int64(i)

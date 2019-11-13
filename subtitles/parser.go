@@ -5,7 +5,7 @@ import (
 
 	"bufio"
 
-	"github.com/rbrick/krieger/subtitles/subrip"
+	"github.com/FiggisAgency/krieger/subtitles/subrip"
 )
 
 //NewSubripReader creates a new SubRip parser

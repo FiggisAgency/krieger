@@ -2,13 +2,12 @@ package av
 
 import (
 	"bytes"
-	"fmt"
 	"github.com/giorgisio/goav/avcodec"
 	"github.com/giorgisio/goav/avformat"
 	"github.com/giorgisio/goav/avutil"
 	"github.com/giorgisio/goav/swscale"
 	"image"
-	"log"
+	"io"
 	"sync"
 	"unsafe"
 )
@@ -30,12 +29,16 @@ func (v *Video) Cleanup() {
 	v.FormatCtx.AvformatCloseInput()
 }
 
-func (v *Video) ReadFrame() *image.RGBA {
+func (v *Video) ReadFrame() (*image.RGBA, error) {
 
 	packet := avcodec.AvPacketAlloc() // allocate a new packet
 	frame := avutil.AvFrameAlloc()    // allocate a new frame
 
 	frameRGBA := avutil.AvFrameAlloc() // allocate the RGBA frame
+
+	v.mutex.Lock()
+	defer v.mutex.Unlock()
+
 
 	// calculate the size
 	size := avcodec.AvpictureGetSize(avcodec.AV_PIX_FMT_RGBA, v.CodecCtx.Width(), v.CodecCtx.Height())
@@ -67,21 +70,20 @@ func (v *Video) ReadFrame() *image.RGBA {
 		// send the data from the packet to the decoder
 		resp := v.CodecCtx.AvcodecSendPacket(packet)
 		if resp < 0 {
-			log.Printf("An error occurred decoding the frame: %v\n", avutil.ErrorFromCode(resp))
-			return nil
+			return nil, avutil.ErrorFromCode(resp)
 		}
 
 		if resp >= 0 {
 
 			resp = v.CodecCtx.AvcodecReceiveFrame((*avcodec.Frame)(unsafe.Pointer(frame)))
-			fmt.Println("received frame")
-			if resp == avutil.AvErrorEAGAIN || resp == -11 || resp == avutil.AvErrorEOF {
+			//fmt.Println("received frame")
+			if resp == avutil.AvErrorEOF {
+				return nil, io.EOF
+			} else if resp == avutil.AvErrorEAGAIN || resp == -11 {
 				// we want to try again
 				continue
 			} else if resp < 0 {
-				log.Println("response code:", resp)
-				log.Println("Error occurred receiving frame:", avutil.ErrorFromCode(resp))
-				return nil
+				return nil, avutil.ErrorFromCode(resp)
 			}
 			if resp >= 0 {
 
@@ -92,10 +94,9 @@ func (v *Video) ReadFrame() *image.RGBA {
 				img = toImage(frameRGBA, v.CodecCtx.Width(), v.CodecCtx.Height())
 				break
 			} else {
-				log.Printf("Oops: %s\n", avutil.ErrorFromCode(resp))
+				return nil, avutil.ErrorFromCode(resp)
 			}
 		}
-
 	}
 
 	swscalePool.Return(v.CodecCtx.Width(), v.CodecCtx.Height())
@@ -106,7 +107,7 @@ func (v *Video) ReadFrame() *image.RGBA {
 	avutil.AvFrameFree(frameRGBA)
 	avutil.AvFrameFree(frame)
 
-	return img
+	return img, nil
 }
 func toImage(frame *avutil.Frame, width, height int) *image.RGBA {
 	buffer := bytes.NewBuffer([]byte{})
@@ -163,5 +164,6 @@ func LoadVideo(file string) (v *Video) {
 
 	// open for reading
 	v.CodecCtx.AvcodecOpen2(v.Codec, nil)
+
 	return
 }

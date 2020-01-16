@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/FiggisAgency/krieger/av"
+	"github.com/FiggisAgency/krieger/imagediff"
 	"image"
 	"image/color"
 	"image/png"
@@ -51,21 +52,22 @@ func Compare(img1, img2 *image.RGBA, frame int64) int64 {
 	for w := 0; w < img1.Bounds().Dx(); w += 100 {
 		for h := 0; h < img1.Bounds().Dy(); h += 100 {
 
-			argba := averageRGB{}
-			pixelCount := int64(0)
+			//argba := averageRGB{}
+			//pixelCount := int64(0)
+
+			bucket := imagediff.NewBucket()
 			for x := w; x <= w+100; x++ {
 				for y := h; y <= h+100; y++ {
 					rgba := img1.RGBAAt(x, y)
-					argba.R += int64(rgba.R)
-					argba.G += int64(rgba.G)
-					argba.B += int64(rgba.B)
-					pixelCount++
+					bucket.Add(rgba)
 				}
 			}
 
+			//fmt.Printf("argba: %v, bucket: %v\n", argba, bucket)
+
 			for x := w; x <= w+100; x++ {
 				for y := h; y <= h+100; y++ {
-					img1.SetRGBA(x, y, argba.RGBA(pixelCount))
+					img1.SetRGBA(x, y, bucket.RGBA())
 					img1.SetRGBA(x, h, color.RGBA{0, 0, 0, 255})
 					img1.SetRGBA(w, y, color.RGBA{0, 0, 0, 255})
 				}
@@ -80,40 +82,45 @@ func Compare(img1, img2 *image.RGBA, frame int64) int64 {
 }
 
 func main() {
-	video := av.LoadVideo("max.mp4")
+	video := av.LoadVideo("luckoffryish.mp4")
 	defer video.Cleanup()
 
-	frameCount := int64(0)
-	//var total int64
-	var lastFrame *image.RGBA
-
-	initialTarget := int64(50)
+	frameCount, savedFrames := int64(0), int64(0)
+	var totalDiff int64
+	var lastSavedFrame *image.RGBA
 
 	for frame, err := video.ReadFrame(); err == nil; {
-		if lastFrame == nil {
-			lastFrame = frame
+		if lastSavedFrame == nil {
+			lastSavedFrame = frame
 
-			//f, _ := os.Create(fmt.Sprintf("work/test_%d.png", frameCount))
-			//
-			//_ = png.Encode(f, frame)
+			f, _ := os.Create(fmt.Sprintf("work/test%03d.png", frameCount))
+
+			_ = png.Encode(f, frame)
 		} else {
-			if frameCount >= initialTarget {
-				break
-			}
 
-			//diff, err := FastCompare(frame, lastFrame)
+			diff, _ := FastCompare(frame, lastSavedFrame)
 
-			Compare(lastFrame, frame, frameCount)
+			//diff, _ := imagediff.DiffImages(frame, lastSavedFrame)
+
+			//fmt.Println("diff:", diff, "error:", err)
 
 			frameCount++
 
+			totalDiff += diff
 			//fmt.Println("diff between frames", frameCount, "and", frameCount-1, "is", diff)
 
-			//f, _ := os.Create(fmt.Sprintf("work/test_%d.png", frameCount))
-			//
-			//_ = png.Encode(f, frame)
+			if diff >= 2500 {
+				savedFrames++
+				lastSavedFrame = frame
+				f, _ := os.Create(fmt.Sprintf("work/test%03d.png", savedFrames))
 
-			lastFrame = frame
+				_ = png.Encode(f, frame)
+			}
+
+			if frameCount >= 250 {
+				break
+			}
+
 			frame, err = video.ReadFrame()
 
 			//break
@@ -125,6 +132,12 @@ func main() {
 
 	}
 
-	//fmt.Println("average difference between frames:", total/frameCount)
-	//fmt.Println("saved", frameCount, "/1000")
+	//for i := 0; i < 10; i++ {
+	//	bucket := imagediff.Bucket{}
+	//	bucket.Add(color.RGBA{0, 0, 1, 0xFF})
+	//	fmt.Printf("bucket addr: %p, B addr: %p, B value: %v\n", &bucket, &bucket.G, bucket.G)
+	//}
+
+	fmt.Println("average difference between frames:", totalDiff/frameCount)
+	fmt.Println("saved", savedFrames, "/", frameCount)
 }

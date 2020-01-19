@@ -2,6 +2,7 @@ package av
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/giorgisio/goav/avcodec"
 	"github.com/giorgisio/goav/avformat"
 	"github.com/giorgisio/goav/avutil"
@@ -9,6 +10,7 @@ import (
 	"image"
 	"io"
 	"sync"
+	"time"
 	"unsafe"
 )
 
@@ -38,7 +40,6 @@ func (v *Video) ReadFrame() (*image.RGBA, error) {
 
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
-
 
 	// calculate the size
 	size := avcodec.AvpictureGetSize(avcodec.AV_PIX_FMT_RGBA, v.CodecCtx.Width(), v.CodecCtx.Height())
@@ -119,14 +120,16 @@ func toImage(frame *avutil.Frame, width, height int) *image.RGBA {
 		// pointer arithmetic
 		startPos := uintptr(unsafe.Pointer(data0)) + uintptr(y)*uintptr(avutil.Linesize(frame)[0])
 		buf := make([]byte, width*4)
-		for i := 0; i < width*4; i++ {
+		for i := 0; i < (width * 4); i++ {
 			element := *(*uint8)(unsafe.Pointer(startPos + uintptr(i)))
 			buf[i] = element
+			//buf[i+3] = 255
 		}
 
 		buffer.Write(buf)
 	}
 
+	fmt.Println("expected array size =", (width*3)*height, "actual array size =", len(buffer.Bytes()))
 	img := image.NewRGBA(image.Rect(0, 0, width, height))
 	img.Pix = buffer.Bytes()
 	return img
@@ -159,9 +162,10 @@ func LoadVideo(file string) (v *Video) {
 
 			// copy the codec context
 			v.CodecCtx.AvcodecCopyContext((*avcodec.Context)(unsafe.Pointer(stream.Codec())))
+
 		}
 	}
-
+	v.FormatCtx.AvSeekFrameTime(v.VideoStream.Index(), 30*time.Minute, v.VideoStream.TimeBase())
 	// open for reading
 	v.CodecCtx.AvcodecOpen2(v.Codec, nil)
 

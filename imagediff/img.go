@@ -30,8 +30,7 @@ func (bucket *Bucket) RGBA() color.RGBA {
 
 func (bucket *Bucket) RGB() int64 {
 	rgba := bucket.RGBA()
-
-	return int64((rgba.R) + (rgba.B) + (rgba.G))
+	return int64(((uint(rgba.R) & 0xff) << 16) | ((uint(rgba.G) & 0xff) << 8) | (uint(rgba.B) & 0xff))
 }
 
 func (bucket *Bucket) Add(rgba color.RGBA) {
